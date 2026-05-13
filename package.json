@@ -1,0 +1,22 @@
+{
+  "name": "seowebsitesbuilder",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "up": "docker-compose up -d",
+    "down": "docker-compose down",
+    "logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

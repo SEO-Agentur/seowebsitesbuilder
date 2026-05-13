@@ -1,0 +1,50 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build artifacts
+.next
+dist
+.turbo
+out
+build
+
+# secrets — never commit
+.env
+.env.local
+.env.production
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+apps/*/.env.production
+*.pem
+*.key
+*.crt
+
+# runtime / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# test / coverage
+coverage
+*.lcov
+
+# editor scratch
+.vscode
+.idea
+*.swp
+*.swo
+
+# agent / temp
+.claude/
+.cache
+.tmp
+*.tmp
+
+# uploaded project volumes (host-side bind mount)
+.data/
+
+# stray docs at repo root (CVs, letters, scratch PDFs) — keep in a separate dir
+/*.pdf
+/*.docx

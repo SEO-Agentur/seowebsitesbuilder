@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: seo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seo_dev_password}
+      POSTGRES_DB: seobuilder
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seo -d seobuilder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orchestrator:
+    build: ./apps/orchestrator
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://seo:${POSTGRES_PASSWORD:-seo_dev_password}@postgres:5432/seobuilder
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DOCKER_HOST: unix:///var/run/docker.sock
+      PORT: "4000"
+      TEMPLATES_DIR: /app/templates
+      PROJECT_VOLUMES_DIR: /var/seobuilder/projects
+    ports:
+      - "4000:4000"
+    volumes:
+      # Mount the host's docker socket so the orchestrator can spawn sibling containers.
+      # WARNING for prod: replace with a Docker-in-Docker setup or remote daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - project_volumes:/var/seobuilder/projects
+      - ./packages/templates:/app/templates:ro
+
+  web:
+    build: ./apps/web
+    restart: unless-stopped
+    depends_on:
+      - orchestrator
+    environment:
+      NEXT_PUBLIC_ORCHESTRATOR_URL: http://localhost:4000
+      ORCHESTRATOR_INTERNAL_URL: http://orchestrator:4000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  project_volumes:
