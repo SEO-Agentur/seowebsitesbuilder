@@ -19,7 +19,9 @@ export async function deployCloudflare(input: DeployInput): Promise<DeployResult
   const zip = await zipProject(input.projectDir);
   const form = new FormData();
   form.append("manifest", new Blob([JSON.stringify({})], { type: "application/json" }));
-  form.append("file", new Blob([zip], { type: "application/zip" }), "site.zip");
+  // TS 5.7 + @types/node disagreement on Buffer<ArrayBufferLike> vs the DOM
+  // lib's BlobPart — the cast is safe; Buffer IS a valid BlobPart at runtime.
+  form.append("file", new Blob([zip as unknown as ArrayBuffer], { type: "application/zip" }), "site.zip");
 
   const r = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}/deployments`,

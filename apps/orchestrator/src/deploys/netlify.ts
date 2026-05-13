@@ -35,7 +35,8 @@ export async function deployNetlify(input: DeployInput): Promise<DeployResult> {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/zip",
     },
-    body: zip,
+    // See cloudflare.ts for the BlobPart cast rationale.
+    body: new Blob([zip as unknown as ArrayBuffer], { type: "application/zip" }),
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new DeployError(`Netlify deploy ${r.status}: ${body?.message || ""}`);

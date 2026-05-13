@@ -1,3 +1,8 @@
+// Sentry must be imported FIRST so its instrumentation can wrap downstream
+// modules (express, http, pg) as they load.
+import "./sentry";
+import { setupExpressRequest } from "./sentry";
+
 import express from "express";
 import cors from "cors";
 import http from "node:http";
@@ -68,6 +73,9 @@ app.use("/projects", publishRouter); // shares /:id namespace
 
 // Preview reverse proxy
 app.use("/preview/:id", (req, res) => previewProxyHandler(req as any, res));
+
+// Sentry's express error handler MUST be after all routes/middleware.
+setupExpressRequest(app);
 
 const server = http.createServer(app);
 

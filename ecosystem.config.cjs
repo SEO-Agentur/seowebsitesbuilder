@@ -63,6 +63,8 @@ module.exports = {
         ADMIN_EMAIL: fileEnv.ADMIN_EMAIL || "",
         RESEND_API_KEY: fileEnv.RESEND_API_KEY || "",
         EMAIL_FROM: fileEnv.EMAIL_FROM || "Seowebsitesbuilder <noreply@seowebsitesbuilder.com>",
+        SENTRY_DSN: fileEnv.SENTRY_DSN || "",
+        SENTRY_TRACES_SAMPLE_RATE: fileEnv.SENTRY_TRACES_SAMPLE_RATE || "0.1",
       },
       max_memory_restart: "500M",
     },
@@ -77,6 +79,7 @@ module.exports = {
         // NEXT_PUBLIC_* must also be present at build time
         // (see apps/web/.env.production)
         NEXT_PUBLIC_ORCHESTRATOR_URL: "https://seowebsitesbuilder.com",
+        SENTRY_DSN: fileEnv.SENTRY_DSN || "",
       },
       max_memory_restart: "400M",
     },

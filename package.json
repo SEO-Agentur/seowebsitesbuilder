@@ -12,11 +12,15 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "up": "docker-compose up -d",
     "down": "docker-compose down",
     "logs": "docker-compose logs -f"
   },
   "devDependencies": {
+    "prettier": "^3.3.3",
     "typescript": "^5.4.0"
   }
 }
