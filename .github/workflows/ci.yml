@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Typecheck (orchestrator + web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck orchestrator
+        run: pnpm --filter @seo/orchestrator typecheck
+
+      - name: Typecheck web
+        run: pnpm --filter @seo/web typecheck
+
+  web-build:
+    name: Build web (Next 14)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Next build
+        env:
+          # Production-like origin so the bundle bakes the right URL.
+          NEXT_PUBLIC_ORCHESTRATOR_URL: https://seowebsitesbuilder.com
+        run: pnpm --filter @seo/web build
+
+  tests:
+    name: Unit tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run all workspace tests
+        # `-r --if-present` skips packages that don't define a test script,
+        # so it's safe to add tests incrementally.
+        run: pnpm -r --if-present test
