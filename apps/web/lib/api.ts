@@ -71,6 +71,21 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ path, content }),
     }),
+  /** Upload a binary file (image, font, etc) by base64-encoding the bytes. */
+  uploadFile: (id: string, path: string, base64Content: string) =>
+    req<{ ok: true; bytes: number }>(`/projects/${id}/file`, {
+      method: "PUT",
+      body: JSON.stringify({ path, content: base64Content, base64: true }),
+    }),
+  deleteFile: (id: string, path: string) =>
+    req<{ ok: true }>(`/projects/${id}/file?path=${encodeURIComponent(path)}`, {
+      method: "DELETE",
+    }),
+  renameFile: (id: string, from: string, to: string) =>
+    req<{ ok: true }>(`/projects/${id}/file/rename`, {
+      method: "POST",
+      body: JSON.stringify({ from, to }),
+    }),
   fileHistory: (id: string, path: string) =>
     req<{ versions: { id: string; saved_at: string; preview: string }[] }>(
       `/projects/${id}/file/history?path=${encodeURIComponent(path)}`,

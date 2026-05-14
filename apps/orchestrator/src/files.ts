@@ -72,7 +72,10 @@ filesRouter.get("/:id/file", async (req: AuthedRequest, res: Response) => {
 
 const PutBody = z.object({
   path: z.string().min(1).max(500),
-  content: z.string().max(2_000_000),
+  content: z.string().max(8_000_000), // ~6 MB binary after base64
+  /** When true, decode `content` from base64 before writing — used by the
+   *  drag-and-drop upload path for images / fonts / other binary assets. */
+  base64: z.boolean().optional(),
 });
 
 // PUT /projects/:id/file — write a file
@@ -80,10 +83,26 @@ filesRouter.put("/:id/file", async (req: AuthedRequest, res: Response) => {
   if (!(await ownsProject(req, req.params.id))) return res.status(404).json({ error: "Not found" });
   const parsed = PutBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { path: rel, content } = parsed.data;
+  const { path: rel, content, base64 } = parsed.data;
   const dir = projectDirFor(req.params.id);
   let full: string;
   try { full = safeJoin(dir, rel); } catch { return res.status(400).json({ error: "Bad path" }); }
+
+  // Binary uploads (images, fonts, etc) skip the text-versioning path —
+  // file_versions stores TEXT and would corrupt binary if mirrored.
+  if (base64) {
+    const buf = Buffer.from(content, "base64");
+    await fs.ensureDir(path.dirname(full));
+    await fs.writeFile(full, buf);
+    // Mirror only the *fact* of the file to Postgres (empty content); the
+    // bind-mounted /app dir is the source of truth for binary assets.
+    await query(
+      `INSERT INTO files (project_id, path, content) VALUES ($1, $2, '')
+       ON CONFLICT (project_id, path) DO UPDATE SET updated_at = now()`,
+      [req.params.id, rel],
+    );
+    return res.json({ ok: true, bytes: buf.byteLength });
+  }
 
   // Snapshot the existing content (if any) before overwriting, so the editor
   // can offer "restore previous version" UI.
@@ -114,6 +133,38 @@ filesRouter.put("/:id/file", async (req: AuthedRequest, res: Response) => {
      ON CONFLICT (project_id, path) DO UPDATE SET content = EXCLUDED.content, updated_at = now()`,
     [req.params.id, rel, content],
   );
+  return res.json({ ok: true });
+});
+
+// POST /projects/:id/file/rename — rename/move a file
+const RenameBody = z.object({
+  from: z.string().min(1).max(500),
+  to: z.string().min(1).max(500),
+});
+filesRouter.post("/:id/file/rename", async (req: AuthedRequest, res: Response) => {
+  if (!(await ownsProject(req, req.params.id))) return res.status(404).json({ error: "Not found" });
+  const parsed = RenameBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { from, to } = parsed.data;
+  if (from === to) return res.json({ ok: true });
+  const dir = projectDirFor(req.params.id);
+  let src: string, dst: string;
+  try {
+    src = safeJoin(dir, from);
+    dst = safeJoin(dir, to);
+  } catch {
+    return res.status(400).json({ error: "Bad path" });
+  }
+  if (!(await fs.pathExists(src))) return res.status(404).json({ error: "Source not found" });
+  if (await fs.pathExists(dst)) return res.status(409).json({ error: "Destination already exists" });
+
+  await fs.ensureDir(path.dirname(dst));
+  await fs.move(src, dst);
+
+  // Mirror in DB: move the files row + any file_versions rows for the same path.
+  await query("UPDATE files SET path = $1, updated_at = now() WHERE project_id = $2 AND path = $3", [to, req.params.id, from]);
+  await query("UPDATE file_versions SET path = $1 WHERE project_id = $2 AND path = $3", [to, req.params.id, from]);
+
   return res.json({ ok: true });
 });
 
