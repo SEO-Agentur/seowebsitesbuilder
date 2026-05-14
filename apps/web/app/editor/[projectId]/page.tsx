@@ -44,7 +44,22 @@ export default function EditorPage() {
   const [previewTok, setPreviewTok] = useState<string | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [canExport, setCanExport] = useState<boolean>(true);  // optimistic until /billing/me resolves
+  // Preview-pane controls (Slice A toolbar polish)
+  const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
+  const [previewPath, setPreviewPath] = useState<string>("/");
+  const [previewPathDraft, setPreviewPathDraft] = useState<string>("/");
+  const [refreshNonce, setRefreshNonce] = useState<number>(0);
   const saveTimer = useRef<any>(null);
+
+  /** Compose a preview URL that puts the user-typed path BEFORE the auth
+   *  query-string. previewUrl() returns either `${base}/` or `${base}/?_t=tok`. */
+  function previewUrlWithPath(path: string): string {
+    const base = previewUrl(projectId, previewTok ?? undefined);
+    const [origin, query = ""] = base.split("?");
+    const cleanPath = path.replace(/^\/+/, "");
+    const stem = origin.endsWith("/") ? origin.slice(0, -1) : origin;
+    return `${stem}/${cleanPath}${query ? `?${query}` : ""}`;
+  }
 
   useEffect(() => {
     if (!isAuthed()) return;
@@ -262,17 +277,94 @@ export default function EditorPage() {
         </section>
 
         <section className="flex-1 min-w-0 flex flex-col border-r border-black/5">
-          <div className="h-9 flex items-center px-3 border-b border-black/5 text-xs text-muted gap-2 bg-white">
-            <span>Preview</span>
-            <span className="text-black/30">·</span>
-            {project.preview_port ? (
-              <a href={previewUrl(projectId, previewTok ?? undefined)} target="_blank" rel="noreferrer" className="hover:text-ink">Open in tab ↗</a>
+          {/* Preview toolbar — Slice A */}
+          <div className="h-10 flex items-center px-2 border-b border-black/5 gap-1 bg-white">
+            {/* Viewport toggle */}
+            <div className="flex items-center border border-black/10 rounded-md overflow-hidden">
+              <button
+                onClick={() => setViewport("desktop")}
+                aria-label="Desktop viewport"
+                title="Desktop viewport"
+                className={`px-2 py-1 text-xs ${viewport === "desktop" ? "bg-ink/5 text-ink" : "text-muted hover:bg-black/5"}`}
+              >
+                💻
+              </button>
+              <button
+                onClick={() => setViewport("mobile")}
+                aria-label="Mobile viewport"
+                title="Mobile viewport (375 × auto)"
+                className={`px-2 py-1 text-xs border-l border-black/10 ${viewport === "mobile" ? "bg-ink/5 text-ink" : "text-muted hover:bg-black/5"}`}
+              >
+                📱
+              </button>
+            </div>
+
+            {/* Path input */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const next = previewPathDraft.startsWith("/") ? previewPathDraft : `/${previewPathDraft}`;
+                setPreviewPath(next);
+                setRefreshNonce((n) => n + 1);
+              }}
+              className="flex-1 mx-1"
+            >
+              <input
+                value={previewPathDraft}
+                onChange={(e) => setPreviewPathDraft(e.target.value)}
+                onBlur={() => {
+                  const next = previewPathDraft.startsWith("/") ? previewPathDraft : `/${previewPathDraft}`;
+                  setPreviewPath(next);
+                  setRefreshNonce((n) => n + 1);
+                }}
+                placeholder="/"
+                spellCheck={false}
+                aria-label="Preview path"
+                className="w-full text-xs font-mono px-2 py-1 border border-black/10 rounded-md outline-none focus:border-accent bg-white"
+              />
+            </form>
+
+            {/* Refresh */}
+            <button
+              onClick={() => setRefreshNonce((n) => n + 1)}
+              aria-label="Reload preview"
+              title="Reload preview"
+              className="px-2 py-1 text-xs text-muted hover:bg-black/5 rounded-md"
+              disabled={project.status !== "running"}
+            >
+              ↺
+            </button>
+
+            {/* External link */}
+            {project.status === "running" ? (
+              <a
+                href={previewUrlWithPath(previewPath)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open preview in new tab"
+                title="Open preview in new tab"
+                className="px-2 py-1 text-xs text-muted hover:bg-black/5 rounded-md"
+              >
+                ↗
+              </a>
             ) : (
-              <span>Not running</span>
+              <span className="text-xs text-muted px-2">Not running</span>
             )}
           </div>
+
           {project.status === "running" ? (
-            <iframe src={previewUrl(projectId, previewTok ?? undefined)} className="flex-1 bg-white" />
+            <div className={`flex-1 min-h-0 ${viewport === "mobile" ? "flex justify-center bg-gray-100 p-3 overflow-auto" : ""}`}>
+              <iframe
+                key={refreshNonce}
+                src={previewUrlWithPath(previewPath)}
+                className={
+                  viewport === "mobile"
+                    ? "bg-white rounded-2xl shadow-md w-[375px] h-[667px] flex-shrink-0"
+                    : "flex-1 bg-white w-full h-full"
+                }
+                title="Live preview"
+              />
+            </div>
           ) : (
             <div className="flex-1 grid place-items-center bg-gray-50">
               <div className="text-center">
