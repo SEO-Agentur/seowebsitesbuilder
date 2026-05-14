@@ -60,6 +60,8 @@ export const EXPORT_GATE_MSG = "Exporting, deploying, and Git push are on Solo, 
 import type { Response, NextFunction } from "express";
 import type { AuthedRequest } from "./auth";
 export async function requireExportPlan(req: AuthedRequest, res: Response, next: NextFunction): Promise<void> {
+  // Admins bypass — operators need to exercise the full product.
+  if (req.user!.is_admin) { next(); return; }
   const plan = await userPlan(req.user!.id);
   if (!PLANS[plan].canExport) {
     res.status(402).json({ error: EXPORT_GATE_MSG, plan, upgradeUrl: "/billing" });

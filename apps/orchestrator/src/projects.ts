@@ -62,7 +62,8 @@ projectsRouter.post("/", async (req: AuthedRequest, res: Response) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { name, framework, backend, templateId } = parsed.data;
 
-  // Plan quota gate
+  // Plan quota gate. Admins bypass — operators need to be able to use their
+  // own product without paying themselves.
   const plan = await userPlan(req.user!.id);
   const limits = PLANS[plan];
   const countRow = await one<{ count: string }>(
@@ -70,7 +71,11 @@ projectsRouter.post("/", async (req: AuthedRequest, res: Response) => {
     [req.user!.id],
   );
   const projectCount = parseInt(countRow?.count ?? "0", 10);
-  if (limits.maxProjects !== Infinity && projectCount >= limits.maxProjects) {
+  if (
+    !req.user!.is_admin &&
+    limits.maxProjects !== Infinity &&
+    projectCount >= limits.maxProjects
+  ) {
     return res.status(402).json({
       error: `Your ${limits.name} plan allows ${limits.maxProjects} project${limits.maxProjects === 1 ? "" : "s"}. Upgrade at /billing to create more.`,
       plan,

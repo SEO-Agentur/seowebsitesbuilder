@@ -126,7 +126,7 @@ domainsRouter.post("/", async (req: AuthedRequest, res: Response) => {
   );
   if (!pub) return res.status(404).json({ error: "Publish not found" });
 
-  // Plan gate
+  // Plan gate — admins bypass.
   const plan = await userPlan(req.user!.id);
   const limit = PLANS[plan].maxCustomDomains;
   const countRow = await one<{ count: string }>(
@@ -134,7 +134,7 @@ domainsRouter.post("/", async (req: AuthedRequest, res: Response) => {
     [req.user!.id],
   );
   const count = parseInt(countRow?.count ?? "0", 10);
-  if (limit !== Infinity && count >= limit) {
+  if (!req.user!.is_admin && limit !== Infinity && count >= limit) {
     return res.status(402).json({
       error: `Your ${PLANS[plan].name} plan allows ${limit} custom domain${limit === 1 ? "" : "s"}. Upgrade at /billing for more.`,
     });
