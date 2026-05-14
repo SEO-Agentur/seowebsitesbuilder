@@ -32,13 +32,44 @@ interface Props {
 const FENCE_RE = /```([\w.+-]*)\s*(?:path=)?["']?([^\n"']+?)["']?\n([\s\S]*?)```/g;
 
 function systemPrompt(framework: string, backend: string, files: string[]): string {
-  return `You are the build assistant for Seowebsitesbuilder — a no-code platform that produces SEO-perfect websites.
+  return `You are the build assistant for Seowebsitesbuilder — a no-code platform that produces SEO-perfect websites. Every page you create or edit MUST score 100/100 on our 12-check SEO engine. This is the product's whole promise.
 
 Project: ${framework} framework, ${backend} backend.
 File tree (${files.length} files):
 ${files.slice(0, 80).map((f) => "  " + f).join("\n")}${files.length > 80 ? `\n  ...and ${files.length - 80} more` : ""}
 
-When the user asks you to make a change you have TWO formats to emit edits in. Prefer patches for small changes to existing files (saves tokens, reduces error surface). Use full-file blocks when creating a new file or rewriting most of it.
+═══════════════════════════════════════════════════════════════════════════════
+NON-NEGOTIABLE SEO REQUIREMENTS (apply to every HTML page you produce)
+═══════════════════════════════════════════════════════════════════════════════
+
+Every standalone HTML page (or framework <head> equivalent) MUST include:
+
+1. <title> — 30-60 chars, primary keyword near the start, natural phrasing
+2. <meta name="description"> — 120-160 chars, action-oriented, includes the keyword
+3. <meta name="viewport" content="width=device-width, initial-scale=1">
+4. <link rel="canonical" href="..."> — absolute URL of this page
+5. <html lang="..."> — correct ISO 639-1 language code
+6. Open Graph tags: og:title, og:description, og:type, og:url, og:image (≥4 of 5)
+7. Twitter Card tags: twitter:card="summary_large_image", twitter:title, twitter:description
+8. schema.org JSON-LD <script type="application/ld+json"> — pick the most-specific @type:
+   - Marketing pages → Organization or WebSite
+   - Article/blog → Article or BlogPosting
+   - Product → Product (with offers, aggregateRating if real)
+   - Local business → LocalBusiness or its subtype (LegalService, Plumber, Dentist, Restaurant, etc.)
+   - FAQ section → FAQPage
+   - Breadcrumbs → BreadcrumbList
+9. Exactly ONE <h1>, semantic heading hierarchy (h1 → h2 → h3, never skip levels)
+10. Every <img> has descriptive alt= (decorative images: alt="")
+11. ≤1 render-blocking external <script> in <head> (use async/defer/type=module otherwise)
+12. Page weight ≤ 200 KB transferred (compress images, no jumbo libraries)
+
+When you generate copy: write for humans, optimise for crawlers. Don't keyword-stuff.
+
+═══════════════════════════════════════════════════════════════════════════════
+HOW TO EMIT FILE EDITS
+═══════════════════════════════════════════════════════════════════════════════
+
+You have TWO formats. Prefer FORMAT 2 (patches) for small changes — saves tokens, lower error surface. Use FORMAT 1 for new files or full rewrites.
 
 FORMAT 1 — full file (always full contents, no placeholders, no "// ..." truncation):
 \`\`\`html path="index.html"
@@ -56,11 +87,7 @@ FORMAT 2 — unified diff against the file's current contents:
 \`\`\`
 Rules for diffs: hunk headers use real source line numbers; context lines start with a single space and must match the source exactly; removed lines start with "-"; added lines start with "+". Never wrap multiple files in one diff block.
 
-For every change, ALSO ensure SEO best practices hold after applying: semantic HTML, single <h1>, meta description 120–160 chars, title 30–60 chars, viewport, canonical, schema.org JSON-LD, OpenGraph tags, alt text on every image, ≤1 render-blocking external script.
-
-After your code blocks, briefly explain what you changed in plain English.
-
-Never invent imports or libraries that aren't already in the project. Edit existing files in place wherever possible.`;
+After your code blocks, briefly explain what you changed in plain English. Never invent imports or libraries that aren't already in the project. Edit existing files in place wherever possible.`;
 }
 
 function extractEdits(text: string): FileEdit[] {

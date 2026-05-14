@@ -137,8 +137,14 @@ export async function startContainer(projectId: string, framework: Framework) {
       Binds: binds,
       PortBindings: { [`${cfg.port}/tcp`]: [{ HostPort: "" }] },
       AutoRemove: false,
-      Memory: 512 * 1024 * 1024,
-      CpuQuota: 50000,
+      // Static frameworks idle around 80 MB. Astro/Next dev servers need
+      // headroom for the JIT + (when prebuilt image is missing) a one-shot
+      // pnpm install at boot. 512 MB OOM-killed Next on first start.
+      Memory: framework === "html" || framework === "php"
+        ? 384 * 1024 * 1024
+        : 1536 * 1024 * 1024,
+      // ~50% of one CPU; bumped for the heavier frameworks too.
+      CpuQuota: framework === "html" || framework === "php" ? 50000 : 100000,
     },
     ExposedPorts: { [`${cfg.port}/tcp`]: {} },
     Labels: { "seo.project": projectId, "seo.framework": framework },
