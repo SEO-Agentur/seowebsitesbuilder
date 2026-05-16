@@ -129,6 +129,7 @@ export function ChatPanel({ projectId, framework, backend, files, readFile, appl
   const [pendingEdits, setPendingEdits] = useState<FileEdit[]>([]);
   const [applying, setApplying] = useState(false);
   const [availableKeys, setAvailableKeys] = useState<ProviderKey[] | null>(null);
+  const autoSentRef = useRef(false);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [lastMeta, setLastMeta] = useState<ChatMeta | null>(null);
   const [trialExhausted, setTrialExhausted] = useState(false);
@@ -150,6 +151,24 @@ export function ChatPanel({ projectId, framework, backend, files, readFile, appl
       })
       .catch(() => setAvailableKeys([]));
   }, []);
+
+  // Auto-fire the initial prompt once everything is ready. "Build it →" in
+  // onboarding pre-fills the textarea; previously the user had to hit Send
+  // manually before the AI would actually rewrite the starter to match
+  // their prompt. Now it fires automatically once the file list has loaded
+  // (so the system prompt sees real files) and the AI-keys state has
+  // resolved (so we know which tier we'll use). Guarded by a ref so it
+  // never fires twice in the same chat session.
+  useEffect(() => {
+    if (autoSentRef.current) return;
+    if (!initialDraft || !initialDraft.trim()) return;
+    if (files.length === 0) return;
+    if (availableKeys === null) return; // still loading
+    if (messages.length > 0) return;
+    autoSentRef.current = true;
+    send();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files.length, initialDraft, availableKeys, messages.length]);
 
   function pickProvider(p: string) {
     setSelectedProvider(p);
