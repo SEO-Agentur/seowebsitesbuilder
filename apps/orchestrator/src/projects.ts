@@ -147,6 +147,11 @@ projectsRouter.get("/:id", async (req: AuthedRequest, res: Response) => {
   return res.json({ project });
 });
 
+/** Per-project locks so two parallel /start calls (e.g. user double-clicks
+ *  while the first request is still pending) don't race on Docker's name
+ *  reservation. Map projectId → in-flight promise. */
+const startLocks = new Map<string, Promise<unknown>>();
+
 projectsRouter.post("/:id/start", async (req: AuthedRequest, res: Response) => {
   const project = await one<ProjectRow>(
     "SELECT * FROM projects WHERE id = $1 AND owner_id = $2",
@@ -154,17 +159,41 @@ projectsRouter.post("/:id/start", async (req: AuthedRequest, res: Response) => {
   );
   if (!project) return res.status(404).json({ error: "Not found" });
 
-  await query("UPDATE projects SET status = 'starting' WHERE id = $1", [project.id]);
+  // If another start is in flight for this project, await it and return the
+  // settled result instead of kicking off a parallel docker.create.
+  const inflight = startLocks.get(project.id);
+  if (inflight) {
+    try {
+      await inflight;
+      const fresh = await one<ProjectRow>("SELECT * FROM projects WHERE id = $1", [project.id]);
+      return res.json({ ok: true, containerId: fresh?.container_id ?? null, hostPort: fresh?.preview_port ?? null });
+    } catch (err: any) {
+      return res.status(500).json({ error: "Failed to start container", detail: String(err?.message || err) });
+    }
+  }
+
+  const work = (async () => {
+    await query("UPDATE projects SET status = 'starting' WHERE id = $1", [project.id]);
+    try {
+      const r = await startContainer(project.id, project.framework);
+      await query(
+        "UPDATE projects SET container_id = $1, preview_port = $2, status = 'running' WHERE id = $3",
+        [r.containerId, r.hostPort, project.id],
+      );
+      return r;
+    } catch (err) {
+      await query("UPDATE projects SET status = 'error' WHERE id = $1", [project.id]);
+      throw err;
+    }
+  })();
+  startLocks.set(project.id, work);
   try {
-    const { containerId, hostPort } = await startContainer(project.id, project.framework);
-    await query(
-      "UPDATE projects SET container_id = $1, preview_port = $2, status = 'running' WHERE id = $3",
-      [containerId, hostPort, project.id],
-    );
+    const { containerId, hostPort } = await work;
     return res.json({ ok: true, containerId, hostPort });
   } catch (err: any) {
-    await query("UPDATE projects SET status = 'error' WHERE id = $1", [project.id]);
     return res.status(500).json({ error: "Failed to start container", detail: String(err?.message || err) });
+  } finally {
+    startLocks.delete(project.id);
   }
 });
 

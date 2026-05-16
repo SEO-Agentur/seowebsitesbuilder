@@ -112,12 +112,27 @@ export async function startContainer(projectId: string, framework: Framework) {
   const projectDir = await scaffoldProjectDir(projectId, framework);
 
   const name = `seo_proj_${projectId.replace(/-/g, "_")}`;
-  try {
-    const old = docker.getContainer(name);
-    await old.stop().catch(() => {});
-    await old.remove({ force: true }).catch(() => {});
-  } catch {
-    // not found — fine
+
+  // Reap any container that's claiming this name. Robust to:
+  //   - the container being in any state (running, paused, exited, dead)
+  //   - rapid double-clicks of "Start" by the user (we run under a per-
+  //     project lock above this layer; this is defense in depth)
+  //   - the previous start crashing mid-flow and leaving an orphan
+  const existing = await docker.listContainers({
+    all: true,
+    filters: { name: [`^/${name}$`] },
+  }).catch(() => [] as Awaited<ReturnType<typeof docker.listContainers>>);
+  for (const c of existing) {
+    try {
+      const ref = docker.getContainer(c.Id);
+      await ref.remove({ force: true, v: false });
+    } catch {
+      // already gone — fine
+    }
+  }
+  // Tiny grace period so Docker releases the name before we recreate it.
+  if (existing.length > 0) {
+    await new Promise((res) => setTimeout(res, 200));
   }
 
   // When using a prebuilt image, mount an anonymous volume on /app/node_modules
