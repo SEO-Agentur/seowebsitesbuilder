@@ -68,7 +68,7 @@ export default function Dashboard() {
         <Link href="/" className="font-semibold text-lg mb-8">Seowebsitesbuilder</Link>
         <nav className="space-y-1 text-sm flex-1">
           <a className="block px-3 py-2 rounded-md bg-ink/5 font-medium">Projects</a>
-          <a className="block px-3 py-2 rounded-md text-muted hover:bg-black/5">Templates</a>
+          <Link href="/templates" className="block px-3 py-2 rounded-md text-muted hover:bg-black/5">Templates</Link>
           <Link href="/domains" className="block px-3 py-2 rounded-md text-muted hover:bg-black/5">Domains</Link>
           <Link href="/billing" className="block px-3 py-2 rounded-md text-muted hover:bg-black/5">Billing</Link>
           <Link href="/settings" className="block px-3 py-2 rounded-md text-muted hover:bg-black/5">AI keys</Link>

@@ -22,8 +22,9 @@ export default function SignupPage() {
     try {
       const { token, user } = await api.signup(email, password, name || undefined);
       saveSession(token, user);
-      const pending = typeof window !== "undefined" ? localStorage.getItem("seo_pending_prompt") : null;
-      router.push(pending ? "/onboarding" : "/dashboard");
+      const pendingPrompt = typeof window !== "undefined" ? localStorage.getItem("seo_pending_prompt") : null;
+      const pendingTemplate = typeof window !== "undefined" ? localStorage.getItem("seo_pending_template") : null;
+      router.push((pendingPrompt || pendingTemplate) ? "/onboarding" : "/dashboard");
     } catch (e: any) {
       setErr(e?.message || "Signup failed");
     } finally {

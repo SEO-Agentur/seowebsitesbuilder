@@ -57,15 +57,25 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!isAuthed()) { router.replace("/signup"); return; }
     const p = (typeof window !== "undefined" ? localStorage.getItem("seo_pending_prompt") : null) || "";
+    const stashedTemplate = typeof window !== "undefined" ? localStorage.getItem("seo_pending_template") : null;
     setPrompt(p);
+    // Priority: prompt-matched default > explicit template choice from
+    // /templates > first stack.
+    let initial: StackOption | undefined;
+    if (p) initial = pickDefault(p);
+    if (!initial && stashedTemplate) initial = STACKS.find((s) => s.id === stashedTemplate);
+    if (!initial) initial = STACKS[0];
+    setPicked(initial);
     if (p) {
-      setPicked(pickDefault(p));
-      // Default name = first 60 chars of the prompt.
       const first = p.split("\n")[0]!.trim();
       setName(first.length > 60 ? first.slice(0, 57) + "…" : first);
+    } else if (stashedTemplate) {
+      setName(initial.label);
     } else {
-      setPicked(STACKS[0]);
       setName("My SEO site");
+    }
+    if (stashedTemplate && typeof window !== "undefined") {
+      localStorage.removeItem("seo_pending_template");
     }
   }, [router]);
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { TemplateCard } from "./template-card";
 
 const TITLE = "Templates — SEO-Perfect Starters for Any Niche";
 const DESCRIPTION =
@@ -58,14 +59,14 @@ export default function TemplatesPage() {
         <section className="mb-16">
           <h2 className="text-xs uppercase tracking-wider text-muted mb-4 font-medium">Framework starters</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TEMPLATES.filter((t) => t.category === "framework").map((t) => <Card key={t.id} t={t} />)}
+            {TEMPLATES.filter((t) => t.category === "framework").map((t) => <TemplateCard key={t.id} t={t} />)}
           </div>
         </section>
 
         <section className="mb-16">
           <h2 className="text-xs uppercase tracking-wider text-muted mb-4 font-medium">Niche starters — local business</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TEMPLATES.filter((t) => t.category === "niche").map((t) => <Card key={t.id} t={t} />)}
+            {TEMPLATES.filter((t) => t.category === "niche").map((t) => <TemplateCard key={t.id} t={t} />)}
           </div>
         </section>
 
@@ -82,19 +83,3 @@ export default function TemplatesPage() {
   );
 }
 
-function Card({ t }: { t: Template }) {
-  return (
-    <Link href={`/signup?template=${t.id}`} className="block bg-white border border-black/5 rounded-xl overflow-hidden hover:border-accent/30 hover:shadow-sm transition group">
-      <div className="aspect-[5/3] grid place-items-center text-5xl" style={{ background: t.thumb.bg, color: t.thumb.bg === "#fafafa" ? "#0a0a0a" : "white" }} aria-hidden="true">
-        {t.thumb.emoji}
-      </div>
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-1.5">
-          <h3 className="font-semibold text-sm">{t.name}</h3>
-          <span className="text-[10px] uppercase tracking-wider text-muted">{t.framework}</span>
-        </div>
-        <p className="text-xs text-muted leading-relaxed">{t.blurb}</p>
-      </div>
-    </Link>
-  );
-}
