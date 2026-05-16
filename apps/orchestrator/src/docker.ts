@@ -155,6 +155,35 @@ export async function startContainer(projectId: string, framework: Framework) {
   const portInfo = info.NetworkSettings.Ports?.[`${cfg.port}/tcp`]?.[0];
   const hostPort = portInfo ? parseInt(portInfo.HostPort, 10) : null;
 
+  // Wait until the dev server inside the container is actually bound and
+  // serving. Without this, the editor sets status=running the moment Docker
+  // returns, but the iframe's first request hits before `pnpm dev` (or
+  // `npx serve`, or whatever) has finished booting → ECONNRESET shown in
+  // the iframe and stays there until the user manually refreshes.
+  if (hostPort) {
+    const previewHost = process.env.PREVIEW_HOST || "127.0.0.1";
+    const startedAt = Date.now();
+    // Frameworks that do install-at-boot (no prebuilt image) need more time.
+    // Static frameworks (html/php) usually ready in <2s. Cap at 45s either way.
+    const timeoutMs = framework === "html" || framework === "php" ? 15_000 : 45_000;
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 1500);
+        const r = await fetch(`http://${previewHost}:${hostPort}/`, { signal: ctrl.signal });
+        clearTimeout(t);
+        // Any HTTP response (even 404) means the dev server is up.
+        if (r.status > 0) {
+          return { containerId: info.Id, hostPort };
+        }
+      } catch {
+        // ECONNREFUSED / ECONNRESET / fetch abort — server not ready yet.
+      }
+      await new Promise((res) => setTimeout(res, 300));
+    }
+    console.warn(`[docker] container ${name} did not bind ${cfg.port} within ${timeoutMs}ms — returning anyway`);
+  }
+
   return { containerId: info.Id, hostPort };
 }
 
