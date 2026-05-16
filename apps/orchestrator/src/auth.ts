@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { one, query } from "./db";
-import { scaffoldProjectDir } from "./docker";
 import { sendEmail } from "./email";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-secret";
@@ -62,20 +61,9 @@ authRouter.post("/signup", async (req: Request, res: Response) => {
   );
   if (!user) return res.status(500).json({ error: "Failed to create user" });
 
-  // Seed the user with a working starter project so the dashboard isn't an
-  // empty room. Failures here are non-fatal — the user can still create one
-  // manually if scaffolding hits an edge case.
-  try {
-    const starter = await one<{ id: string }>(
-      `INSERT INTO projects (owner_id, name, slug, framework, backend, template_id)
-       VALUES ($1, 'My first SEO site', 'my-first-site', 'html', 'none', 'html')
-       RETURNING id`,
-      [user.id],
-    );
-    if (starter) await scaffoldProjectDir(starter.id, "html", "html");
-  } catch (err) {
-    console.warn(`[signup] starter project scaffold failed for ${user.email}:`, err);
-  }
+  // No starter project is seeded any more — the hero-prompt + /onboarding
+  // flow IS the new-user's first project. Auto-seeding here would use up
+  // the Free plan's 1-project quota, so onboarding would 402 immediately.
 
   await maybePromoteAdmin(user.email);
   // Re-read so the returned object reflects an immediate admin promotion.
